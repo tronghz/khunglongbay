@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khủng Long Chạy</title>
+    <style>
+        :root {
+            --sky-color: #87CEEB;
+            --ground-color: #C2B280;
+            --score-color: #333333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 1000px;
+            height: 400px;
+            overflow: hidden;
+            border: 3px solid #333;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        #game {
+            width: 100%;
+            height: 100%;
+            background-image: url('images/background.png');
+            background-repeat: repeat-x;
+            animation: scrollBackground 20s linear infinite;
+        }
+
+        @keyframes scrollBackground {
+            from { background-position: 0 0; }
+            to { background-position: -1000px 0; }
+        }
+
+        #dino {
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            bottom: 0;
+            left: 50px;
+            transition: all 0.5s ease;
+            z-index: 1000;
+        }
+
+        .obstacle {
+    width: 60px;  /* Tăng từ 30px lên 60px */
+    height: 80px; /* Tăng từ 50px lên 80px */
+    position: absolute;
+    background-image: url('images/obstacles/phantom.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: floatPhantom 2s ease-in-out infinite;
+}
+.obstacle-hitbox {
+    position: absolute;
+    width: 40%;  /* 40% của kích thước obstacle */
+    height: 40%; /* 40% của kích thước obstacle */
+    top: 30%;    /* Căn giữa hitbox */
+    left: 30%;
+    /* background: rgba(255, 0, 0, 0.3); */ /* Uncomment để debug hitbox */
+}
+
+        @keyframes floatPhantom {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+
+        .point {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            background-image: url('images/items/point.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            animation: float 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes float {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+
+        .target-point {
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+            animation: fadeOut 1s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; transform: scale(2); }
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 1001;
+        }
+
+        #score {
+            font-size: 24px;
+            color: var(--score-color);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        #skinSelect {
+            padding: 5px;
+            border-radius: 5px;
+            border: 2px solid #333;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 1002;
+        }
+
+        .game-over h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .game-over button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+        .game-over button:hover {
+            background: #45a049;
+        }
+
+        #pause-button {
+            padding: 5px 15px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        #pause-button:hover {
+            background: #45a049;
+        }
+
+        #pause-button.paused {
+            background: #f44336;
+        }
+
+        /* Thêm style cho màn hình pause */
+        .pause-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 1002;
+        }
+
+        .speed-indicator {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game">
+            <img id="dino" src="images/skins/skin1.png" alt="Dinosaur">
+            
+            <div id="ui-container">
+                <div id="controls">
+                    <select id="skinSelect">
+                        <option value="images/skins/skin1.png">Khủng Long Xanh</option>
+                        <option value="images/skins/skin2.png">Khủng Long Đỏ</option>
+                        <option value="images/skins/skin3.png">Khủng Long Vàng</option>
+                        <option value="images/skins/skin4.png">Khủng Long Tím</option>
+                        <option value="images/skins/skin5.png">Khủng Long Xám</option>
+                    </select>
+                    <button id="pause-button">Pause</button>
+                    <div class="speed-indicator">Tốc độ: 1x</div>
+                </div>
+                <div id="score">Điểm: 0</div>
+            </div>
+        </div>
+
+        <div class="game-over">
+            <h2>Game Over!</h2>
+            <p>Điểm số: <span id="final-score">0</span></p>
+            <button id="restart-button">Chơi Lại</button>
+        </div>
+
+        <div class="pause-screen">
+            <h2>Tạm Dừng</h2>
+            <p>Nhấn 'P' hoặc nút Pause để tiếp tục</p>
+        </div>
+    </div>
+
+    <script>
+class Game {
+    constructor() {
+        // Khởi tạo các element
+        this.dino = document.getElementById('dino');
+        this.game = document.getElementById('game');
+        this.scoreElement = document.getElementById('score');
+        this.skinSelect = document.getElementById('skinSelect');
+        this.gameOverScreen = document.querySelector('.game-over');
+        this.finalScoreElement = document.getElementById('final-score');
+        this.restartButton = document.getElementById('restart-button');
+        this.pauseButton = document.getElementById('pause-button');
+        this.pauseScreen = document.querySelector('.pause-screen');
+        this.speedIndicator = document.querySelector('.speed-indicator');
+        
+        // Khởi tạo các thông số game
+        this.score = 0;
+        this.baseSpeed = 3;
+        this.gameSpeed = this.baseSpeed;
+        this.speedMultiplier = 1;
+        this.lastSpeedIncreaseScore = 0;
+        this.isGameOver = false;
+        this.isPaused = false;
+        this.targetX = 50;
+        this.targetY = 0;
+        this.dinoX = 80;
+        this.dinoY = 0;
+        this.isMoving = false;
+
+        // Khởi tạo game
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.startGame();
+        this.gameLoop();
+    }
+
+    setupEventListeners() {
+        // Event cho nút pause
+        this.pauseButton.addEventListener('click', () => {
+            this.togglePause();
+        });
+
+        // Event cho phím P
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'p' || e.key === 'P') {
+                this.togglePause();
+            }
+        });
+
+        // Event cho click di chuyển
+        this.game.addEventListener('click', (e) => {
+            if (!this.isGameOver && !this.isPaused) {
+                const rect = this.game.getBoundingClientRect();
+                this.targetX = e.clientX - rect.left;
+                this.targetY = e.clientY - rect.top;
+                
+                this.createTargetPoint(this.targetX, this.targetY);
+                this.moveDino();
+            }
+        });
+
+        // Event cho đổi skin
+        this.skinSelect.addEventListener('change', (e) => {
+            this.dino.src = e.target.value;
+        });
+
+        // Event cho restart
+        this.restartButton.addEventListener('click', () => {
+            this.resetGame();
+        });
+    }
+
+    togglePause() {
+        if (this.isGameOver) return;
+        
+        this.isPaused = !this.isPaused;
+        this.pauseButton.textContent = this.isPaused ? 'Resume' : 'Pause';
+        this.pauseButton.classList.toggle('paused');
+        this.pauseScreen.style.display = this.isPaused ? 'block' : 'none';
+
+        if (!this.isPaused) {
+            this.gameLoop();
+        }
+    }
+
+    updateScore(points) {
+        this.score += points;
+        this.scoreElement.textContent = `Điểm: ${this.score}`;
+        this.checkAndUpdateSpeed();
+    }
+
+    checkAndUpdateSpeed() {
+        const shouldIncreaseSpeed = Math.floor(this.score / 100);
+        
+        if (shouldIncreaseSpeed > Math.floor(this.lastSpeedIncreaseScore / 100)) {
+            this.speedMultiplier = 1 + (shouldIncreaseSpeed * 0.2);
+            this.gameSpeed = this.baseSpeed * this.speedMultiplier;
+            
+            this.speedIndicator.textContent = `Tốc độ: ${this.speedMultiplier.toFixed(1)}x`;
+            
+            console.log(`Tăng tốc độ tại điểm ${this.score}`);
+            console.log(`Speed Multiplier mới: ${this.speedMultiplier}`);
+            console.log(`Game Speed mới: ${this.gameSpeed}`);
+            
+            this.lastSpeedIncreaseScore = this.score;
+        }
+    }
+
+    createTargetPoint(x, y) {
+        const point = document.createElement('div');
+        point.classList.add('target-point');
+        point.style.left = x + 'px';
+        point.style.top = y + 'px';
+        this.game.appendChild(point);
+
+        setTimeout(() => {
+            if (point.parentNode === this.game) {
+                this.game.removeChild(point);
+            }
+        }, 1000);
+    }
+
+    moveDino() {
+        this.isMoving = true;
+        
+        const dx = this.targetX - this.dinoX;
+        const dy = this.targetY - this.dinoY;
+        const angle = Math.atan2(dy, dx);
+        
+        this.dino.style.transform = `rotate(${angle * 180 / Math.PI}deg)`;
+        this.dino.style.left = this.targetX + 'px';
+        this.dino.style.top = this.targetY + 'px';
+
+        setTimeout(() => {
+            this.isMoving = false;
+            this.dinoX = this.targetX;
+            this.dinoY = this.targetY;
+        }, 500);
+    }
+
+    createObstacle() {
+    if (this.isGameOver || this.isPaused) return;
+
+    // Tạo container cho obstacle
+    const obstacleContainer = document.createElement('div');
+    obstacleContainer.classList.add('obstacle');
+    
+    // Tạo hitbox
+    const hitbox = document.createElement('div');
+    hitbox.classList.add('obstacle-hitbox');
+    obstacleContainer.appendChild(hitbox);
+    
+    this.game.appendChild(obstacleContainer);
+
+    let obstacleX = 1000;
+    let obstacleY = Math.random() * (this.game.clientHeight - 100);
+    let startTime = Date.now();
+    
+    obstacleContainer.style.left = obstacleX + 'px';
+    obstacleContainer.style.top = obstacleY + 'px';
+
+    const moveObstacle = () => {
+        if (this.isGameOver || this.isPaused) return;
+
+        obstacleX -= this.gameSpeed;
+        obstacleContainer.style.left = obstacleX + 'px';
+        
+        obstacleY += Math.sin((Date.now() - startTime) / 500) * 2;
+        obstacleContainer.style.top = obstacleY + 'px';
+
+        if (obstacleX < -60) {  // Điều chỉnh theo kích thước mới
+            if (obstacleContainer.parentNode === this.game) {
+                this.game.removeChild(obstacleContainer);
+            }
+            return;
+        }
+
+        // Kiểm tra va chạm với hitbox thay vì toàn bộ obstacle
+        const dinoRect = this.dino.getBoundingClientRect();
+        const hitboxRect = hitbox.getBoundingClientRect();
+        
+        if (this.checkCollision(dinoRect, hitboxRect)) {
+            this.gameOver();
+            return;
+        }
+
+        requestAnimationFrame(moveObstacle);
+    };
+
+    requestAnimationFrame(moveObstacle);
+
+    const nextObstacleDelay = Math.max(500, 2000 - (this.score * 2));
+    setTimeout(() => {
+        if (!this.isGameOver && !this.isPaused) this.createObstacle();
+    }, nextObstacleDelay);
+}
+
+    createPoint() {
+        if (this.isGameOver || this.isPaused) return;
+
+        const point = document.createElement('div');
+        point.classList.add('point');
+        this.game.appendChild(point);
+
+        let pointX = 1000;
+        let pointY = Math.random() * (this.game.clientHeight - 50);
+        
+        point.style.left = pointX + 'px';
+        point.style.top = pointY + 'px';
+
+        const movePoint = () => {
+            if (this.isGameOver || this.isPaused) return;
+
+            pointX -= this.gameSpeed;
+            point.style.left = pointX + 'px';
+
+            if (pointX < -20) {
+                if (point.parentNode === this.game) {
+                    this.game.removeChild(point);
+                }
+                return;
+            }
+
+            const dinoRect = this.dino.getBoundingClientRect();
+            const pointRect = point.getBoundingClientRect();
+            
+            if (this.checkCollision(dinoRect, pointRect)) {
+                if (point.parentNode === this.game) {
+                    this.game.removeChild(point);
+                }
+                this.updateScore(10);
+                return;
+            }
+
+            requestAnimationFrame(movePoint);
+        };
+
+        requestAnimationFrame(movePoint);
+
+        const nextPointDelay = Math.max(500, 1500 - (this.score * 1.5));
+        setTimeout(() => {
+            if (!this.isGameOver && !this.isPaused) this.createPoint();
+        }, nextPointDelay);
+    }
+
+    checkCollision(rect1, rect2) {
+    // Tạo một vùng va chạm nhỏ hơn cho khủng long
+    const dinoHitbox = {
+        left: rect1.left + rect1.width * 0.2,    // Thu nhỏ 20% từ mỗi bên
+        right: rect1.right - rect1.width * 0.2,
+        top: rect1.top + rect1.height * 0.2,
+        bottom: rect1.bottom - rect1.height * 0.2
+    };
+
+    return !(dinoHitbox.right < rect2.left || 
+            dinoHitbox.left > rect2.right || 
+            dinoHitbox.bottom < rect2.top || 
+            dinoHitbox.top > rect2.bottom);
+}
+
+    gameOver() {
+        this.isGameOver = true;
+        this.finalScoreElement.textContent = this.score;
+        this.gameOverScreen.style.display = 'block';
+    }
+
+    resetGame() {
+        // Reset game state
+        this.isGameOver = false;
+        this.isPaused = false;
+        this.score = 0;
+        this.speedMultiplier = 1;
+        this.gameSpeed = this.baseSpeed;
+        this.lastSpeedIncreaseScore = 0;
+        this.dinoX = 80;
+        this.dinoY = 0;
+
+        // Reset UI
+        this.scoreElement.textContent = 'Điểm: 0';
+        this.speedIndicator.textContent = 'Tốc độ: 1x';
+        this.dino.style.left = '50px';
+        this.dino.style.top = '0px';
+        this.dino.style.transform = 'none';
+        this.gameOverScreen.style.display = 'none';
+        this.pauseScreen.style.display = 'none';
+        this.pauseButton.textContent = 'Pause';
+        this.pauseButton.classList.remove('paused');
+
+        // Clear obstacles and points
+        const obstacles = document.querySelectorAll('.obstacle');
+        const points = document.querySelectorAll('.point');
+        obstacles.forEach(obstacle => obstacle.remove());
+        points.forEach(point => point.remove());
+
+        // Restart game
+        this.startGame();
+    }
+
+    startGame() {
+        this.createObstacle();
+        this.createPoint();
+    }
+
+    gameLoop() {
+        if (!this.isGameOver && !this.isPaused) {
+            requestAnimationFrame(() => this.gameLoop());
+        }
+    }
+}
+
+// Start game when page loads
+window.addEventListener('load', () => {
+    new Game();
+});
+    </script>
+</body>
+</html>
